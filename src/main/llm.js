@@ -26,6 +26,7 @@ const PROVIDERS = {
   mistral: { label: 'Mistral', url: 'https://api.mistral.ai/v1', env: 'MISTRAL_API_KEY' },
   custom: { label: 'Custom (customUrl in config)' },
   claude: { label: 'Claude Code (sends to the terminal agent)', kind: 'claude' },
+  opencode: { label: 'OpenCode (sends to the terminal agent)', kind: 'opencode' },
 };
 
 // no bypassPermissions: a chat bubble on the desktop shouldn't run anything without asking
@@ -72,6 +73,7 @@ async function models(id, cfg) {
   const p = endpoint(id, cfg);
   if (p.kind === 'ollama') return ollama.models().catch(() => null);
   if (p.kind === 'claude') return claudeVersion().then(() => ['Claude Code']);
+  if (p.kind === 'opencode') return opencodeVersion().then(() => ['OpenCode']);
   // what's missing has a code, so her setup knows what to ask for (setup.js)
   if (!p.url) throw Object.assign(new Error('no address set for this server'), { code: 'nourl' });
   if (p.env && !p.key) throw Object.assign(new Error(`no API key (or ${p.env})`), { code: 'nokey' });
@@ -205,13 +207,97 @@ function restoreClaude(saved) {
   claudeStarted = Boolean(claudeSession && saved.started);
 }
 
-const isChatSession = (id) => Boolean(id) && id === claudeSession;
+// --- OpenCode ------------------------------------------------------------------------------------
+let opencodeSession = null;
+let opencodeStarted = false;
+
+function opencodeVersion() {
+  return new Promise((resolve, reject) => {
+    execFile('opencode', ['--version'], { shell: process.platform === 'win32', timeout: 10000 }, (err, out) => (
+      err ? reject(new Error('OpenCode not found (is `opencode` on your PATH?)')) : resolve(out.trim())));
+  });
+}
+
+function opencodeChat(cfg, text, persona, onDelta, signal) {
+  if (!opencodeSession) opencodeSession = 'ses_' + randomUUID().replace(/-/g, '');
+  const args = ['run', '--format', 'json', '--session', opencodeSession, '--auto'];
+  return new Promise((resolve, reject) => {
+    const child = spawn('opencode', args, {
+      cwd: cfg.claudeCwd || os.homedir(),
+      shell: process.platform === 'win32',
+      windowsHide: true,
+    });
+    const kill = () => (process.platform === 'win32'
+      ? execFile('taskkill', ['/pid', String(child.pid), '/t', '/f'], () => {})
+      : child.kill());
+    signal.addEventListener('abort', kill, { once: true });
+    let buffer = '';
+    let all = '';
+    let errors = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      buffer += chunk;
+      let nl;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line) continue;
+        let msg = null;
+        try { msg = JSON.parse(line); } catch { /* not JSON: show it as text */ }
+        if (msg && typeof msg === 'object') {
+          if (msg.error) {
+            const m = (typeof msg.error === 'string') ? msg.error : (msg.error.message || JSON.stringify(msg.error));
+            if (m) errors += (errors ? '\n' : '') + m;
+          }
+          // OpenCode streams events; pull any text we can find.
+          const pieces = [];
+          if (typeof msg.text === 'string') pieces.push(msg.text);
+          if (msg.part && typeof msg.part.text === 'string') pieces.push(msg.part.text);
+          if (msg.message && typeof msg.message === 'string') pieces.push(msg.message);
+          if (Array.isArray(msg.content)) for (const b of msg.content) if (b && typeof b.text === 'string') pieces.push(b.text);
+          if (pieces.length) {
+            const piece = (all ? '\n' : '') + pieces.join('');
+            all += piece;
+            onDelta(piece);
+          }
+        } else if (line) {
+          all += (all ? '\n' : '') + line;
+          onDelta(line + '\n');
+        }
+      }
+    });
+    child.stderr.on('data', (chunk) => { errors += chunk; });
+    // persona + the user's message, on stdin
+    child.stdin.end(`${persona}\n\n${text}`);
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (signal.aborted) return reject(new Error('stopped'));
+      if (code && code !== 0 && !all) return reject(new Error(errors.trim().slice(0, 300) || `OpenCode exited ${code}`));
+      resolve(all);
+    });
+  });
+}
+
+function resetOpenCode() {
+  opencodeSession = null;
+  opencodeStarted = false;
+}
+
+const opencodeMemory = () => ({ session: opencodeSession, started: opencodeStarted });
+function restoreOpenCode(saved) {
+  const s = saved?.session;
+  opencodeSession = (typeof s === 'string' && s.startsWith('ses_')) ? s : null;
+  opencodeStarted = Boolean(opencodeSession && saved.started);
+}
+
+const isChatSession = (id) => Boolean(id) && (id === claudeSession || id === opencodeSession);
 
 async function chat(id, cfg, { model, messages }, onDelta, signal) {
   const p = endpoint(id, cfg);
   if (p.kind === 'ollama') return ollama.chat({ model, messages }, onDelta, signal);
   // Claude Code keeps its own memory of the conversation: only her persona and your last message go
   if (p.kind === 'claude') return claudeChat(cfg, messages.at(-1).content, messages[0].content, onDelta, signal);
+  if (p.kind === 'opencode') return opencodeChat(cfg, messages.at(-1).content, messages[0].content, onDelta, signal);
   return openaiChat(p, { model, messages }, onDelta, signal);
 }
 
@@ -224,4 +310,4 @@ function isLocal(id, cfg, model) {
   return Boolean(PROVIDERS[id].local);
 }
 
-module.exports = { isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, isChatSession, claudeMemory, restoreClaude };
+module.exports = { isLocal, PROVIDERS, CLAUDE_MODES, models, warm, chat, resetClaude, resetOpenCode, isChatSession, claudeMemory, restoreClaude, opencodeMemory, restoreOpenCode };

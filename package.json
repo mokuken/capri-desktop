@@ -16,6 +16,8 @@
     "hooks:codex:uninstall": "node scripts/install-codex-hooks.js --uninstall",
     "hooks:agy:install": "node scripts/install-hooks-agy.js",
     "hooks:agy:uninstall": "node scripts/install-hooks-agy.js --uninstall",
+    "hooks:opencode:install": "node scripts/install-opencode-hooks.js",
+    "hooks:opencode:uninstall": "node scripts/install-opencode-hooks.js --uninstall",
     "check:llm": "node scripts/check-llm.js",
     "test:hooks": "node --test tests/hooks.test.js",
     "dist": "electron-builder --win"

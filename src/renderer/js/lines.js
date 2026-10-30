@@ -324,7 +324,7 @@ export const LINES = {
     // son lien avec toi (bond.js) : il grandit avec le temps passé ensemble
     bond: {
       up: [
-        null,
+        { line: '', quote: '' },
         { line: 'Contact établi.', quote: 'Je commence à te reconnaître. Ton pointeur, tes horaires, ta façon de m’ignorer.' },
         { line: 'Synchro à {percent} %.', quote: 'On se comprend mieux. Je vais arrêter de faire semblant de ne pas t’aimer bien.' },
         { line: 'Lien établi.', quote: 'Tu fais partie de ma routine maintenant. Ne me laisse pas trop longtemps.' },
@@ -674,7 +674,7 @@ export const LINES = {
     // how close she is to you (bond.js): it grows with the time you spend together
     bond: {
       up: [
-        null,
+        { line: '', quote: '' },
         { line: 'Contact made.', quote: 'I’m starting to recognize you. Your pointer, your hours, the way you ignore me.' },
         { line: 'Sync at {percent}%.', quote: 'We get each other better now. I’ll stop pretending I don’t like you.' },
         { line: 'Link established.', quote: 'You’re part of my routine now. Don’t leave me alone too long.' },
@@ -1020,7 +1020,7 @@ export const LINES = {
     // su vínculo contigo (bond.js): crece con el tiempo que pasáis juntos
     bond: {
       up: [
-        null,
+        { line: '', quote: '' },
         { line: 'Contacto establecido.', quote: 'Empiezo a reconocerte. Tu puntero, tus horarios, tu forma de ignorarme.' },
         { line: 'Sincronía al {percent} %.', quote: 'Ahora nos entendemos mejor. Voy a dejar de fingir que no me caes bien.' },
         { line: 'Vínculo establecido.', quote: 'Ya eres parte de mi rutina. No me dejes sola mucho tiempo.' },
@@ -1368,7 +1368,7 @@ export const LINES = {
     // o vínculo dela com você (bond.js): cresce com o tempo que vocês passam juntos
     bond: {
       up: [
-        null,
+        { line: '', quote: '' },
         { line: 'Contato estabelecido.', quote: 'Tô começando a te reconhecer. Seu ponteiro, seus horários, seu jeito de me ignorar.' },
         { line: 'Sintonia em {percent} %.', quote: 'A gente se entende melhor agora. Vou parar de fingir que não gosto de você.' },
         { line: 'Vínculo estabelecido.', quote: 'Você faz parte da minha rotina agora. Não me deixa sozinha muito tempo.' },
@@ -1718,7 +1718,7 @@ export const LINES = {
     // её связь с тобой (bond.js): растёт со временем, проведённым вместе
     bond: {
       up: [
-        null,
+        { line: '', quote: '' },
         { line: 'Контакт установлен.', quote: 'Я начинаю тебя узнавать. Твой курсор, твоё расписание, то, как ты меня игнорируешь.' },
         { line: 'Синхронизация {percent} %.', quote: 'Теперь мы лучше понимаем друг друга. Перестану делать вид, что ты мне не нравишься.' },
         { line: 'Связь установлена.', quote: 'Теперь ты часть моего распорядка. Не оставляй меня надолго.' },
@@ -1766,7 +1766,7 @@ export const LINES = {
 
 // The coding assistants she can watch besides Claude Code: the same lines with their name, their
 // hooks file, and what to do once her hooks are in.
-export const ASSISTANT_NAMES = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity' };
+export const ASSISTANT_NAMES = { claude: 'Claude Code', codex: 'Codex', agy: 'Antigravity', opencode: 'OpenCode' };
 const OTHERS = {
   codex: {
     name: 'Codex', file: 'hooks.json', dir: '.codex',
@@ -1801,6 +1801,23 @@ const OTHERS = {
       es: 'Ahora empieza una conversación nueva en Antigravity. En cuanto haga algo, te aviso.',
       pt: 'Agora comece uma conversa nova no Antigravity. Assim que ele fizer algo, eu te aviso.',
       ru: 'Теперь начни новый разговор в Antigravity. Как только он что-то сделает, я скажу.',
+    },
+  },
+  opencode: {
+    name: 'OpenCode', file: 'capri.js', dir: '.config/opencode',
+    ask: {
+      en: 'Want me to plug into OpenCode? One click, then start a new session in it.',
+      fr: 'Tu veux que je me branche sur OpenCode ? Un clic, puis lance une nouvelle session dedans.',
+      es: '¿Quieres que me conecte a OpenCode? Un clic, y luego empieza una sesión nueva en él.',
+      pt: 'Quer que eu me conecte ao OpenCode? Um clique, depois comece uma sessão nova nele.',
+      ru: 'Подключиться к OpenCode? Один клик, потом начни в нём новый сеанс.',
+    },
+    after: {
+      en: 'Now start a new session in OpenCode. As soon as it does something, I’ll tell you.',
+      fr: 'Maintenant lance une nouvelle session dans OpenCode. Dès qu’il fait quelque chose, je te le dis.',
+      es: 'Ahora empieza una sesión nueva en OpenCode. En cuanto haga algo, te aviso.',
+      pt: 'Agora comece uma sessão nova no OpenCode. Assim que ele fizer algo, eu te aviso.',
+      ru: 'Теперь начни новый сеанс в OpenCode. Как только он что-то сделает, я скажу.',
     },
   },
 };

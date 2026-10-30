@@ -216,7 +216,8 @@ export class Chat {
     }
     this.history = await host.chatMemory().catch(() => this.history); // "forget" in her menu may have emptied it
     this.cold = status.warmup && !this.warm;
-    this.agent = Boolean(status.agent); // Claude Code answers, as her, and really works in your project
+    this.agent = Boolean(status.agent); // Claude Code / OpenCode answers, as her, and really works in your project
+    this.agentName = status.provider === 'opencode' ? 'OpenCode' : 'Claude Code';
     this.listApps();
     const shortModel = status.model.replace(/:latest$/, '').replace(/^models\//, ''); // Ollama's tag, Gemini's prefix
     const tiny = status.provider === 'ollama' && TINY.test(status.model) && this.onBetterModel;
@@ -820,7 +821,7 @@ export class Chat {
         ? [`A few minutes ago you looked at the user's screen and told them: "${this.seen.text}". You can bring it up if it fits.`]
         : []),
       ...(this.agent
-        ? ['Under the hood you are Claude Code, working in the user\'s project: really do what they ask with your tools, as carefully as ever. Only your final answer is in character: it shows in a small speech bubble, so sum up what you did in those few sentences.']
+        ? [`Under the hood you are ${this.agentName}, working in the user's project: really do what they ask with your tools, as carefully as ever. Only your final answer is in character: it shows in a small speech bubble, so sum up what you did in those few sentences.`]
         : this.powers()),
       ...(watching ? [`If the user asks what ${assistant} is doing, here is all you know (never make anything up): ${this.brain.context()}`] : []),
       // how she feels right now, last but for her language: small models follow the end of it best

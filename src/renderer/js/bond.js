@@ -154,7 +154,7 @@ export const RIVALS = {
   deepseek: 'DeepSeek', grok: 'Grok', lechat: 'Le Chat', characterai: 'Character.AI', metaai: 'Meta AI',
 };
 // the one she watches is no rival of hers (Antigravity runs on Gemini)
-const OWN = { claude: ['claude'], codex: ['codex'], agy: ['gemini'] };
+const OWN = { claude: ['claude'], codex: ['codex'], agy: ['gemini'], opencode: ['opencode'] };
 
 const NOTICE_AFTER = 4000;           // in front this long: she notices
 const ACT_AFTER = 45000;             // this long on it, lately: she does something about it

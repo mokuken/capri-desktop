@@ -70,7 +70,8 @@ function saveMemory(patch) {
 }
 function forgetChats() {
   llm.resetClaude();
-  saveMemory({ history: [], claude: null });
+  llm.resetOpenCode();
+  saveMemory({ history: [], claude: null, opencode: null });
   sendCommand('forget');
 }
 
@@ -624,6 +625,7 @@ async function sayAboutSnap({ id, persona, prompt, history = [] }) {
   const model = pickModel(cfg);
   if (!model) return { ok: false, code: 'noai' };
   if (cfg.provider === 'claude') return { ok: false, code: 'novision', model: 'Claude Code' };
+  if (cfg.provider === 'opencode') return { ok: false, code: 'novision', model: 'OpenCode' };
   if (cfg.provider === 'ollama' && !(await ollama.canSee(model))) return { ok: false, code: 'novision', model };
   const user = cfg.provider === 'ollama'
     ? { role: 'user', content: prompt, images: [image] }
@@ -722,7 +724,7 @@ function registerIpc() {
     const model = pickModel();
     llm.warm(provider, model); // loading while you type your first message
     const local = llm.isLocal(provider, cfg, model);
-    return { ok: true, provider, model, agent: provider === 'claude', local, warmup: provider === 'ollama' && local };
+    return { ok: true, provider, model, agent: provider === 'claude' || provider === 'opencode', local, warmup: provider === 'ollama' && local };
   });
   // her answer, streamed to the overlay piece by piece as `chat:delta`
   ipcMain.handle('chat:send', async (_e, { id, messages }) => {
@@ -737,6 +739,7 @@ function registerIpc() {
       const cfg = config.load();
       const text = await chatWithFallback(cfg, messages, send, abort.signal, () => streamed);
       if (cfg.provider === 'claude') saveMemory({ claude: llm.claudeMemory() });
+  if (cfg.provider === 'opencode') saveMemory({ opencode: llm.opencodeMemory() });
       return { ok: true, text };
     } catch (err) {
       return { ok: false, error: abort.signal.aborted ? 'stopped' : err.message, code: err.code || null };
@@ -1027,7 +1030,7 @@ function main() {
   if (process.platform === 'win32') app.setAppUserModelId('capri.desktop');
 
   app.whenReady().then(() => {
-    if (!['codex', 'claude'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
+    if (!['codex', 'claude', 'agy', 'opencode'].includes(config.load().assistant)) config.save({ assistant: activeAssistant().id });
     serveProtocol();
     registerIpc();
     createOverlay();
@@ -1049,6 +1052,7 @@ function main() {
     });
     globalShortcut.register('Control+Alt+C', () => toggleVisible());
     llm.restoreClaude(readMemory().claude);
+  llm.restoreOpenCode(readMemory().opencode);
     refreshModels(); // for her menu's model list
     setTimeout(() => launch.launchables().catch(() => {}), 20000); // what she can open, before you ask
     // a screen plugged in, unplugged, or rearranged: her window fitted again, and she learns of it

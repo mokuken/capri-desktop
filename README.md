@@ -160,9 +160,10 @@ The first time, she sets it up with you, with buttons, no terminal:
 
 Her menu › **AI model** lets you switch later: **Set it up with her…**, or straight to a service and a model, LM Studio
 (`:1234`), llama.cpp or vLLM (`:8080`), any OpenAI-compatible server (**API key or address…**), or **Claude Code**
-itself: your messages go to `claude -p` in the folder you pick, continuing one conversation, and her hooks show what it
-does. In that last one, permission mode `default` only lets it read (nobody is there to say yes); `acceptEdits` lets it
-edit files without asking. **Forget our conversations** clears what she remembers of your chats.
+or **OpenCode** themselves: your messages go to `claude -p` / `opencode run` in the folder you pick, continuing one
+conversation, and her hooks show what it does. In that last one, permission mode `default` only lets it read (nobody
+is there to say yes); `acceptEdits` lets it edit files without asking. **Forget our conversations** clears what she
+remembers of your chats.
 
 **It's AI.** Her replies are written by the model, not by the show's writers: it's a fan version of her, and the chat
 panel says so every time.
@@ -312,7 +313,7 @@ Restart your Claude Code sessions afterwards. To remove it: `npm run hooks:unins
 
 The hooks run `async`: they never slow Claude down, and when Capri isn't running they do nothing.
 
-### Codex or Antigravity instead of Claude Code
+### Codex, Antigravity or OpenCode instead of Claude Code
 
 Right-click her › **Watch** › **Codex** or **Antigravity**. She says hi and offers to plug herself in, like she does
 for Claude Code. Then:
@@ -320,10 +321,11 @@ for Claude Code. Then:
 - **Codex**: restart it and trust her hooks when it asks. They go in `~/.codex/hooks.json`. Her hook for Codex needs
   [Node.js](https://nodejs.org) 20 or newer on your PATH.
 - **Antigravity**: start a new conversation. Her hooks go in `~/.gemini/config/hooks.json`.
+- **OpenCode**: start a new session. Her plugin goes in `~/.config/opencode/plugins/capri.js`.
 
 She follows one of them at a time, the one picked in her menu, and her lines, her guide and her chat use its name.
 She only watches: when Codex or Antigravity asks for approval, you still answer it there. From the command line:
-`npm run hooks:codex:install` or `npm run hooks:agy:install` (`:uninstall` to remove them), and `npm run test:hooks`
+`npm run hooks:codex:install`, `npm run hooks:agy:install` or `npm run hooks:opencode:install` (`:uninstall` to remove them), and `npm run test:hooks`
 runs the tests of both adapters. **Watch** › **Nothing, just keep me company**: she stops talking about any of them.
 
 ### Try it without Claude
@@ -379,7 +381,7 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 
 - **Mac, Linux?** No installer yet, but you can run her from the source (see above).
 - **Phone, Android?** No, she needs a desktop.
-- **Other assistants?** Claude Code, Codex and Antigravity: her menu › **Watch**. Cursor, Windsurf and Gemini CLI: not yet.
+- **Other assistants?** Claude Code, Codex, Antigravity and OpenCode: her menu › **Watch**. Cursor, Windsurf and Gemini CLI: not yet.
 - **Ollama?** Two ways. Claude Code running on a local model through Ollama (`ollama launch claude`): she sees it like
   any Claude Code, it's just slower, and her ticker counts the seconds while it thinks. And she can chat with you
   through Ollama herself: see "Talk to her".
