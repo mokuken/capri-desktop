@@ -7,3 +7,12 @@ Thumbs.db
 
 # local debug captures
 captures/
+
+# Piper runtime and voice model binaries
+piper/*.exe
+piper/*.dll
+piper/*.ort
+piper/voices/**/*.onnx
+piper/espeak-ng-data/phondata
+piper/espeak-ng-data/phonindex
+piper/espeak-ng-data/phontab
