@@ -49,11 +49,13 @@
       "assets/**",
       "hooks/**",
       "scripts/**",
+      "piper/**",
       "package.json",
       "LICENSE"
     ],
     "asarUnpack": [
       "hooks/**",
+      "piper/**",
       "src/main/windows.ps1"
     ],
     "win": {

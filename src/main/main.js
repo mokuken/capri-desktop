@@ -3,6 +3,7 @@
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs');
+const { spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
 const {
   app, BrowserWindow, Tray, Menu, ipcMain, screen, protocol, net, shell, globalShortcut, nativeImage,
@@ -29,6 +30,30 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const DEV = process.argv.includes('--dev');
 const PORT = Number(process.env.CAPRI_PORT) || 47823;
 const SOUND_EXT = /\.(mp3|wav|ogg|m4a)$/i;
+const DEFAULT_PIPER_VOICE = 'en_GB-cori-high';
+
+function piperDir() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar.unpacked', 'piper')
+    : path.join(ROOT, 'piper');
+}
+
+function piperVoices() {
+  const dir = path.join(piperDir(), 'voices');
+  try {
+    if (!fs.existsSync(path.join(piperDir(), 'piper.exe'))) return [];
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^[\w-]+$/.test(entry.name))
+      .filter((entry) => {
+        const model = path.join(dir, entry.name, `${entry.name}.onnx`);
+        return fs.existsSync(model) && fs.existsSync(`${model}.json`);
+      })
+      .map((entry) => ({ id: entry.name, label: entry.name }));
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.warn('[capri] could not list Piper voices:', err.message);
+    return [];
+  }
+}
 
 const OLLAMA_SITE = 'https://ollama.com';
 
@@ -300,6 +325,10 @@ function updateConfig(patch) {
 function rebuildTray() {
   if (!tray) return;
   const cfg = config.load();
+  const voices = piperVoices();
+  const selectedVoice = voices.find((voice) => voice.id === cfg.piperVoice)?.id
+    || voices.find((voice) => voice.id === DEFAULT_PIPER_VOICE)?.id
+    || voices[0]?.id;
   const hookState = activeHooks().status();
   const watched = activeAssistant();
   const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
@@ -352,6 +381,19 @@ function rebuildTray() {
       label: t.sound,
       submenu: [
         { label: t.mute, type: 'checkbox', checked: cfg.muted, click: (item) => updateConfig({ muted: item.checked }) },
+        { label: t.speak || 'Speak her lines', type: 'checkbox', checked: Boolean(cfg.tts), click: (item) => updateConfig({ tts: item.checked }) },
+        { type: 'separator' },
+        {
+          label: t.ttsVoice,
+          submenu: voices.length
+            ? voices.map((voice) => ({
+              label: voice.label,
+              type: 'radio',
+              checked: voice.id === selectedVoice,
+              click: () => updateConfig({ piperVoice: voice.id }),
+            }))
+            : [{ label: t.ttsNoVoices, enabled: false }],
+        },
         { type: 'separator' },
         {
           label: t.soundsDir,
@@ -900,6 +942,87 @@ function registerIpc() {
     }
   });
 }
+
+// Text-to-speech through Piper (bundled under ./piper). Returns base64 WAV for the overlay.
+ipcMain.handle('tts:speak', async (_e, text) => {
+  const phrase = typeof text === 'string' ? text.trim().slice(0, 2000) : '';
+  if (!phrase) return { ok: false, error: 'There is no text to speak' };
+
+  const piperRoot = piperDir();
+  const voices = piperVoices();
+  const configuredVoice = config.load().piperVoice || DEFAULT_PIPER_VOICE;
+  const voice = voices.find((item) => item.id === configuredVoice)
+    || voices.find((item) => item.id === DEFAULT_PIPER_VOICE)
+    || voices[0];
+  if (!voice) return { ok: false, error: 'No Piper voices are installed' };
+  if (voice.id !== configuredVoice) {
+    console.warn(`[capri] Piper voice "${configuredVoice}" is unavailable; using "${voice.id}"`);
+  }
+
+  const piperExe = path.join(piperRoot, 'piper.exe');
+  const model = path.join(piperRoot, 'voices', voice.id, `${voice.id}.onnx`);
+  if (!fs.existsSync(piperExe) || !fs.existsSync(model)) {
+    return { ok: false, error: 'Piper or its voice model is missing' };
+  }
+
+  const out = path.join(os.tmpdir(), `capri-tts-${randomUUID()}.wav`);
+  return await new Promise((resolve) => {
+    let settled = false;
+    let timedOut = false;
+    let stderr = '';
+    let timer;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        fs.rmSync(out, { force: true });
+      } catch (err) {
+        console.warn('[capri] could not remove temporary Piper audio:', err.message);
+      }
+      resolve(result);
+    };
+
+    let child;
+    try {
+      child = spawn(piperExe, ['--model', model, '--output_file', out], {
+        cwd: piperRoot,
+        windowsHide: true,
+        stdio: ['pipe', 'ignore', 'pipe'],
+      });
+    } catch (err) {
+      return finish({ ok: false, error: `Could not start Piper: ${err.message}` });
+    }
+
+    timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, 30000);
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      if (stderr.length < 4000) stderr += chunk.slice(0, 4000 - stderr.length);
+    });
+    child.stdin.on('error', (err) => {
+      console.warn('[capri] could not send text to Piper:', err.message);
+    });
+    child.on('error', (err) => finish({ ok: false, error: `Could not start Piper: ${err.message}` }));
+    child.on('close', (code) => {
+      if (timedOut) return finish({ ok: false, error: 'Piper took too long to synthesize speech' });
+      if (code !== 0) {
+        const detail = stderr.trim().slice(0, 500);
+        return finish({ ok: false, error: `Piper exited with code ${code}${detail ? `: ${detail}` : ''}` });
+      }
+      try {
+        const buf = fs.readFileSync(out);
+        if (!buf.length) return finish({ ok: false, error: 'Piper produced an empty audio file' });
+        finish({ ok: true, audio: buf.toString('base64') });
+      } catch (err) {
+        finish({ ok: false, error: `Could not read Piper audio: ${err.message}` });
+      }
+    });
+    child.stdin.end(phrase);
+  });
+});
 
 // Only in --dev: lets scripts drive the overlay and grab frames of it (no desktop content, just our window).
 const testWins = new Map(); // name -> test window

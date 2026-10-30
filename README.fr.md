@@ -359,7 +359,12 @@ C'est aussi dans le menu de l'icône, dans sa langue ; en ligne de commande c'es
 
 ## Sons
 
-Tous les sons sont synthétisés en direct (Web Audio), rien n'est fourni sous droits.
+Les effets sonores sont synthétisés en direct (Web Audio). Les répliques sont dites localement par
+Piper et sa voix Cori anglaise britannique, fournis avec l'application, avec un léger scintillement
+modulé et de brefs glitches occasionnels. Si Piper est indisponible, Capri utilise la synthèse vocale
+du navigateur. Sa voix est légèrement accélérée et plus aiguë pour un effet espiègle. Active ou
+désactive cette option dans le menu › Son › *Lui faire dire ses répliques*.
+Choisis une voix installée dans le menu › Son › *Voix Piper* ; Capri utilise `en_GB-cori-high` par défaut.
 Tu peux mettre tes propres fichiers dans le dossier des sons perso (menu › Son › *Ouvrir le dossier des sons perso*),
 avec ces noms (`.mp3`, `.wav`, `.ogg` ou `.m4a`) :
 

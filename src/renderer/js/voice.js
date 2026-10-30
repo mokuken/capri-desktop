@@ -1,4 +1,4 @@
-// Capri's sounds, synthesized with Web Audio so nothing has to ship with the repo.
+// Capri's sound effects are synthesized with Web Audio; spoken lines use Piper when available.
 // Any file dropped in the custom sounds folder (tray > Son) named after a cue
 // (teleport-out.mp3, done.wav, alert.ogg...) replaces the synth for that cue.
 
@@ -7,6 +7,7 @@ import { rand, pick } from './util.js';
 // a minor-pentatonic set for the talking blips; three detuned voices = a chorus of minds
 const BLIP_NOTES = [62, 65, 67, 69, 72, 74, 77, 79];
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+const CHIPMUNK_RATE = 1.3;
 
 export const CUES = ['teleport-out', 'teleport-in', 'done', 'alert', 'error', 'hello', 'blip', 'tick', 'star', 'land', 'rise', 'bolt', 'charge', 'possess', 'throw', 'crash', 'remind', 'jealous'];
 
@@ -16,6 +17,9 @@ export class Voice {
     this.master = null;
     this.muted = false;
     this.volume = 0.7;
+    this.tts = false;
+    this.speechRequest = 0;
+    this.activeSpeech = null;
     this.custom = new Map(); // cue -> AudioBuffer
     this.lastBlip = 0;
   }
@@ -39,11 +43,120 @@ export class Voice {
     return ctx;
   }
 
-  configure({ muted, volume }) {
+  configure({ muted, volume, tts }) {
     if (typeof muted === 'boolean') this.muted = muted;
     if (typeof volume === 'number') {
       this.volume = volume;
       if (this.master) this.master.gain.value = volume;
+    }
+    if (typeof tts === 'boolean') this.tts = tts;
+    if (this.muted || !this.tts) this.stopSpeaking();
+  }
+
+  stopSpeaking() {
+    this.speechRequest += 1;
+    this.activeSpeech?.stop();
+    this.activeSpeech = null;
+    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+  }
+
+  async speak(text) {
+    if (!this.tts || this.muted || !text) return;
+    const clean = String(text).replace(/<[^>]*>/g, '').trim();
+    if (!clean) return;
+    this.stopSpeaking();
+    const request = this.speechRequest;
+    // Prefer Piper (bundled) when available.
+    try {
+      const host = (typeof window !== 'undefined') ? window.host : null;
+      if (host && typeof host.speak === 'function') {
+        const res = await host.speak(clean);
+        if (request !== this.speechRequest || !this.tts || this.muted) return;
+        if (res && res.ok && res.audio) {
+          const ctx = this.ensure();
+          if (ctx.state === 'suspended') await ctx.resume();
+          const buf = Uint8Array.from(atob(res.audio), (c) => c.charCodeAt(0)).buffer;
+          const audio = await ctx.decodeAudioData(buf);
+          if (request !== this.speechRequest || !this.tts || this.muted) return;
+
+          const src = ctx.createBufferSource();
+          src.playbackRate.value = CHIPMUNK_RATE;
+          const speech = ctx.createGain();
+          const delay = ctx.createDelay(0.05);
+          const shimmer = ctx.createGain();
+          const highShelf = ctx.createBiquadFilter();
+          const modulator = ctx.createOscillator();
+          const modDepth = ctx.createGain();
+          let sourceStopped = false;
+          let modulatorStopped = false;
+          const stopSource = () => {
+            if (sourceStopped) return;
+            sourceStopped = true;
+            src.stop();
+          };
+          const stopModulator = () => {
+            if (modulatorStopped) return;
+            modulatorStopped = true;
+            modulator.stop();
+          };
+          const active = { stop: () => { stopSource(); stopModulator(); } };
+
+          src.buffer = audio;
+          src.connect(speech);
+          speech.connect(this.master);
+          src.connect(delay);
+          delay.connect(highShelf).connect(shimmer).connect(speech);
+          delay.delayTime.value = 0.022;
+          highShelf.type = 'highshelf';
+          highShelf.frequency.value = 2800;
+          highShelf.gain.value = 2.5;
+          shimmer.gain.value = 0.12;
+          modulator.frequency.value = 0.7;
+          modDepth.gain.value = 0.002;
+          modulator.connect(modDepth).connect(delay.delayTime);
+
+          const now = ctx.currentTime;
+          speech.gain.setValueAtTime(1, now);
+          if (audio.duration > 0.65 && Math.random() < 0.22) {
+            const glitchAt = now + (audio.duration / CHIPMUNK_RATE) * (0.25 + Math.random() * 0.5);
+            speech.gain.setValueAtTime(1, glitchAt);
+            speech.gain.linearRampToValueAtTime(0.55, glitchAt + 0.006);
+            speech.gain.setValueAtTime(0.55, glitchAt + 0.018);
+            speech.gain.linearRampToValueAtTime(1, glitchAt + 0.03);
+          }
+
+          this.activeSpeech = active;
+          modulator.start();
+          src.start();
+          src.onended = () => {
+            stopModulator();
+            if (this.activeSpeech === active) this.activeSpeech = null;
+            speech.disconnect();
+            delay.disconnect();
+            highShelf.disconnect();
+            shimmer.disconnect();
+            modDepth.disconnect();
+          };
+          return;
+        }
+        if (res?.error) console.warn('[capri] Piper speech failed, falling back:', res.error);
+      }
+    } catch (e) {
+      console.warn('[capri] piper tts failed, falling back', e);
+    }
+    // Fallback: Web Speech.
+    if (request === this.speechRequest && this.tts && !this.muted
+      && typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        const u = new SpeechSynthesisUtterance(clean);
+        u.volume = this.volume;
+        u.rate = 1.15;
+        u.pitch = 1.35;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      } catch (e) {
+        console.warn('[capri] tts failed', e);
+      }
     }
   }
 

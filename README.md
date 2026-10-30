@@ -343,7 +343,12 @@ It's also in the tray menu, in her language; from the command line it's in Engli
 
 ## Sounds
 
-Every sound is synthesized live (Web Audio), nothing copyrighted ships with the repo.
+Sound effects are synthesized live (Web Audio). Spoken lines use the bundled Piper engine and its
+English (UK) Cori voice locally, with a faint modulated shimmer and occasional brief glitch. If Piper
+is unavailable, Capri falls back to the browser's speech engine. Turn speech on or off from tray ›
+Sound › *Speak her lines*. Her speech is pitch-shifted slightly higher for a playful, chipmunk-like
+sound.
+Choose an installed voice from tray › Sound › *Piper voice*; Capri defaults to `en_GB-cori-high`.
 You can drop your own files in the custom sounds folder (tray › Sound › *Open custom sounds folder*),
 named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 
@@ -520,4 +525,3 @@ her, change her and share what you made, for free. Selling Capri, or anything ma
 paid access, paid orders), is not allowed. Versions up to 0.4.3 were under the MIT License.
 
 Fonts: Chakra Petch and JetBrains Mono, under the SIL Open Font License, via Fontsource.
-

@@ -80,6 +80,7 @@ async function boot() {
     ticker: document.getElementById('ticker'),
     labels: linesFor(config.lang, config.assistant),
   });
+  panel.onSpeak = (text) => voice.speak(text);
 
   const capri = new Capri({
     root: document.getElementById('capri'),
